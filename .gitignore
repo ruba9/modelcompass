@@ -1,0 +1,35 @@
+# Dependencies and generated frontend output
+node_modules/
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# .NET build output
+**/bin/
+**/obj/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+appsettings.Local.json
+appsettings.*.Local.json
+
+# Logs and test output
+*.log
+coverage/
+TestResults/
+
+# Editors and operating systems
+.vscode/
+.idea/
+.vs/
+.DS_Store
+Thumbs.db
+*.user
+*.suo
+
+# Temporary files
+*.tmp
+*.bak
