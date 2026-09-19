@@ -125,6 +125,41 @@ type EvaluationVerdict = { modelId: string; modelName: string; score: number; re
 type EvaluationMode = "demo" | "live";
 
 const API_URL = "http://localhost:5070/api";
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+const MAX_FILES = 8;
+const ACCEPTED_FILES = ".pdf,.txt,.md,.csv,.json,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.m4a,.ogg,.webm,.mp4,.mov";
+const ACCEPTED_FILE_TYPES: Record<string, string[]> = {
+  ".pdf": ["application/pdf"],
+  ".txt": ["text/plain"],
+  ".md": ["text/markdown", "text/plain"],
+  ".csv": ["text/csv"],
+  ".json": ["application/json"],
+  ".jpg": ["image/jpeg"],
+  ".jpeg": ["image/jpeg"],
+  ".png": ["image/png"],
+  ".webp": ["image/webp"],
+  ".gif": ["image/gif"],
+  ".mp3": ["audio/mpeg"],
+  ".wav": ["audio/wav", "audio/x-wav"],
+  ".m4a": ["audio/mp4"],
+  ".ogg": ["audio/ogg"],
+  ".webm": ["audio/webm", "video/webm"],
+  ".mp4": ["video/mp4"],
+  ".mov": ["video/quicktime"],
+};
+const fileExtension = (file: File) =>
+  `.${file.name.split(".").pop()?.toLowerCase() ?? ""}`;
+const isAcceptedFile = (file: File) =>
+  ACCEPTED_FILE_TYPES[fileExtension(file)]?.includes(
+    file.type.split(";")[0].toLowerCase(),
+  ) ?? false;
+const fileModality = (file: File) => {
+  const contentType = file.type.split(";")[0].toLowerCase();
+  if (contentType.startsWith("image/")) return "vision";
+  if (contentType.startsWith("audio/")) return "audio";
+  if (contentType.startsWith("video/")) return "video";
+  return "text";
+};
 const steps: { id: Step; label: string; detail: string }[] = [
   {
     id: "requirements",
@@ -189,6 +224,16 @@ export default function ModelCompass() {
   const fileInput = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const recordingChunks = useRef<Blob[]>([]);
+  const uploadedModalities = [...new Set(files.map(fileModality))];
+  const incompatibleModels = recommendations
+    .filter((item) => selectedModels.includes(item.model.id))
+    .map((item) => ({
+      name: item.model.name,
+      unsupported: uploadedModalities.filter(
+        (modality) => !item.model.modalities.includes(modality),
+      ),
+    }))
+    .filter((item) => item.unsupported.length > 0);
 
   const update = <Key extends keyof Profile>(key: Key, value: Profile[Key]) =>
     setProfile((current) => ({ ...current, [key]: value }));
@@ -229,27 +274,34 @@ export default function ModelCompass() {
     setEvaluationVerdict(null);
   };
   const addFiles = (incoming: File[]) => {
-    const supported = incoming.filter(
+    const empty = incoming.filter((file) => file.size === 0);
+    const oversized = incoming.filter((file) => file.size > MAX_FILE_BYTES);
+    const unsupported = incoming.filter(
       (file) =>
-        file.size <= 25 * 1024 * 1024 &&
-        (file.type.startsWith("image/") ||
-          file.type.startsWith("audio/") ||
-          file.type.startsWith("video/") ||
-          [
-            "text/plain",
-            "text/csv",
-            "application/json",
-            "application/pdf",
-          ].includes(file.type)),
+        file.size > 0 &&
+        file.size <= MAX_FILE_BYTES &&
+        !isAcceptedFile(file),
     );
-    setFiles((current) => [...current, ...supported].slice(0, 8));
+    const availableSlots = Math.max(0, MAX_FILES - files.length);
+    const accepted = incoming
+      .filter(
+        (file) =>
+          file.size > 0 &&
+          file.size <= MAX_FILE_BYTES &&
+          isAcceptedFile(file),
+      )
+      .slice(0, availableSlots);
+    const omittedCount = incoming.length - empty.length - oversized.length - unsupported.length - accepted.length;
+    const issues = [
+      empty.length ? `${empty.map((file) => file.name).join(", ")} are empty` : "",
+      oversized.length ? `${oversized.map((file) => file.name).join(", ")} exceed 25 MB` : "",
+      unsupported.length ? `${unsupported.map((file) => file.name).join(", ")} use unsupported formats` : "",
+      omittedCount > 0 ? `Only ${MAX_FILES} files can be added` : "",
+    ].filter(Boolean);
+    setFiles((current) => [...current, ...accepted]);
     setEvaluationResults([]);
     setEvaluationVerdict(null);
-    setMessage(
-      supported.length === incoming.length
-        ? ""
-        : "Some files were skipped. Use supported files up to 25 MB each.",
-    );
+    setMessage(issues.join(". "));
   };
   const startRecording = async () => {
     try {
@@ -280,6 +332,10 @@ export default function ModelCompass() {
     setRecording(false);
   };
   const runEvaluation = async () => {
+    if (incompatibleModels.length) {
+      setMessage("Remove incompatible files or choose models that support every uploaded data type.");
+      return;
+    }
     setEvaluationRunning(true);
     setEvaluationResults([]);
     setEvaluationVerdict(null);
@@ -776,10 +832,7 @@ export default function ModelCompass() {
                       <label>
                         Your files <span className="optional">Optional</span>
                       </label>
-                      <small>
-                        Documents, images, audio, and video · 25 MB each · 8
-                        files max
-                      </small>
+                      <small>Documents, images, audio, and video</small>
                     </div>
                     <button
                       className={`record-button ${recording ? "recording" : ""}`}
@@ -788,6 +841,15 @@ export default function ModelCompass() {
                       {recording ? <Square size={14} /> : <Mic size={15} />}
                       {recording ? "Stop" : "Record audio"}
                     </button>
+                  </div>
+                  <div className="upload-policy">
+                    <AlertTriangle size={17} />
+                    <div>
+                      <strong>Upload requirements</strong>
+                      <span>25 MB per file · 8 files maximum</span>
+                      <span>Images: JPG, JPEG, PNG, WEBP, GIF · Video: MP4, WEBM, MOV</span>
+                      <span>Documents: PDF, TXT, MD, CSV, JSON · Audio: MP3, WAV, M4A, OGG, WEBM</span>
+                    </div>
                   </div>
                   <button
                     className="drop-zone"
@@ -807,7 +869,7 @@ export default function ModelCompass() {
                     className="file-input"
                     type="file"
                     multiple
-                    accept=".pdf,.txt,.md,.csv,.json,image/*,audio/*,video/*"
+                    accept={ACCEPTED_FILES}
                     onChange={(event) => {
                       addFiles(Array.from(event.target.files ?? []));
                       event.target.value = "";
@@ -830,6 +892,20 @@ export default function ModelCompass() {
                           }}
                         />
                       ))}
+                    </div>
+                  )}
+                  {incompatibleModels.length > 0 && (
+                    <div className="compatibility-warning" role="alert">
+                      <AlertTriangle size={16} />
+                      <div>
+                        <strong>Selected model and file type do not match</strong>
+                        {incompatibleModels.map((item) => (
+                          <span key={item.name}>
+                            {item.name} does not support {item.unsupported.join(" or ")} input.
+                          </span>
+                        ))}
+                        <span>Remove those files or select a compatible model to continue.</span>
+                      </div>
                     </div>
                   )}
                   <p className="privacy-note">
@@ -905,6 +981,7 @@ export default function ModelCompass() {
                   disabled={
                     (!samples.trim() && !files.length) ||
                     !selectedModels.length ||
+                    incompatibleModels.length > 0 ||
                     evaluationRunning
                   }
                 >

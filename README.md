@@ -148,7 +148,14 @@ $env:Providers__Google__MediaEndpoint="https://your-adapter.example/evaluate"
 $env:Providers__Google__ApiKey="<set in your terminal>"
 ```
 
-The adapter receives `model`, JSON-encoded `samples`, and up to eight `files`. Model Compass accepts PDF, plain text, CSV, JSON, image, audio, and video content up to 25 MB per file. Files are processed in memory and are not persisted by this application; the configured provider's retention policy still applies.
+The adapter receives `model`, JSON-encoded `samples`, and up to eight `files`, with a 25 MB limit per file. Supported formats are:
+
+- Documents: PDF, TXT, MD, CSV, JSON
+- Images: JPG, JPEG, PNG, WEBP, GIF
+- Audio: MP3, WAV, M4A, OGG, WEBM
+- Video: MP4, WEBM, MOV
+
+The evaluation workspace checks every upload against the selected models before enabling a run. When a model does not support an uploaded text, vision, audio, or video modality, the UI names the incompatible model and data type. The API repeats format, size, count, and model-modality validation as a server-side safeguard. Files are processed in memory and are not persisted by this application; the configured provider's retention policy still applies.
 
 ## Recommendation logic
 
@@ -252,7 +259,7 @@ Invoke-RestMethod "http://localhost:5070/api/recommendations" `
 
 ### Media evaluation
 
-`POST /api/evaluations/media` accepts multipart form data with model IDs, samples, connection information, and up to eight supported files. Each file is limited to 25 MB.
+`POST /api/evaluations/media` accepts multipart form data with model IDs, samples, connection information, and up to eight supported files. Each file is limited to 25 MB and must use one of the document, image, audio, or video formats listed above.
 
 ## Architecture
 

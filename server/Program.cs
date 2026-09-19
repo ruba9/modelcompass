@@ -211,12 +211,12 @@ app.MapPost("/api/evaluations/media", async (HttpRequest request, IHttpClientFac
     var invalidFile = files.FirstOrDefault(file =>
         file.Length == 0 ||
         file.Length > maxFileBytes ||
-        !IsSupportedMediaType(file.ContentType));
+        !IsSupportedMediaFile(file));
 
     if (form.Files.Count > 8)
         return Results.BadRequest(new { message = "A maximum of 8 files is allowed per evaluation." });
     if (invalidFile is not null)
-        return Results.BadRequest(new { message = $"{invalidFile.FileName} is empty, larger than 25 MB, or has an unsupported media type." });
+        return Results.BadRequest(new { message = $"{invalidFile.FileName} is empty, larger than 25 MB, or unsupported. Use PDF, TXT, MD, CSV, JSON, JPG, JPEG, PNG, WEBP, GIF, MP3, WAV, M4A, OGG, WEBM, MP4, or MOV." });
     if (modelIds.Length == 0 || (samples.Length == 0 && files.Length == 0))
         return Results.BadRequest(new { message = "Select at least one model and provide text or media data." });
 
@@ -288,11 +288,31 @@ app.MapPost("/api/evaluations/media", async (HttpRequest request, IHttpClientFac
     return Results.Ok(new MediaEvaluationResponse(DateTimeOffset.UtcNow, assets, results.ToArray(), BuildVerdict(results, catalog)));
 });
 
-static bool IsSupportedMediaType(string contentType) =>
-    contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
-    contentType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase) ||
-    contentType.StartsWith("video/", StringComparison.OrdinalIgnoreCase) ||
-    contentType is "text/plain" or "text/csv" or "application/json" or "application/pdf";
+static bool IsSupportedMediaFile(IFormFile file)
+{
+    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+    var contentType = file.ContentType.Split(';')[0].ToLowerInvariant();
+    return extension switch
+    {
+        ".pdf" => contentType == "application/pdf",
+        ".txt" => contentType == "text/plain",
+        ".md" => contentType is "text/markdown" or "text/plain",
+        ".csv" => contentType == "text/csv",
+        ".json" => contentType == "application/json",
+        ".jpg" or ".jpeg" => contentType == "image/jpeg",
+        ".png" => contentType == "image/png",
+        ".webp" => contentType == "image/webp",
+        ".gif" => contentType == "image/gif",
+        ".mp3" => contentType == "audio/mpeg",
+        ".wav" => contentType is "audio/wav" or "audio/x-wav",
+        ".m4a" => contentType == "audio/mp4",
+        ".ogg" => contentType == "audio/ogg",
+        ".webm" => contentType is "audio/webm" or "video/webm",
+        ".mp4" => contentType == "video/mp4",
+        ".mov" => contentType == "video/quicktime",
+        _ => false
+    };
+}
 
 static string GetModality(string contentType) => contentType.Split('/')[0] switch
 {
