@@ -8,6 +8,7 @@ It is a decision-support tool, not a benchmark authority, procurement system, or
 
 - [What it does](#what-it-does)
 - [How the workflow works](#how-the-workflow-works)
+- [UI walkthrough](#ui-walkthrough)
 - [Run locally](#run-locally)
 - [Configure live evaluation](#configure-live-evaluation)
 - [Recommendation logic](#recommendation-logic)
@@ -59,6 +60,26 @@ Gated access means the publisher requires an explicit license acceptance or repo
 7. **Consider Model Router.** For diverse Microsoft Foundry workloads, review the recommended `model-router` mode and deployment prerequisites.
 8. **Evaluate finalists.** Select models and run representative prompts or files in deterministic Demo mode or through a configured live provider.
 9. **Make the decision.** Compare outputs, observed latency, token usage, estimated cost, and the run verdict alongside human quality review.
+
+## UI walkthrough
+
+### 1. Define project requirements
+
+Describe the workload, select required modalities, set deployment and legal constraints, estimate traffic, and tune ranking priorities.
+
+![Model Compass requirements step showing workload, modality, deployment, cost, and ranking controls](docs/screenshots/01-requirements.png)
+
+### 2. Review the recommended shortlist
+
+Compare eligible models, inspect fit scores and evidence, review projected cost optimizations, and evaluate Microsoft Foundry Model Router guidance.
+
+![Model Compass shortlist step showing ranked models, cost optimization, and Microsoft Foundry Model Router guidance](docs/screenshots/02-shortlist.png)
+
+### 3. Evaluate selected models
+
+Test selected models with representative prompts or supported files, choose Demo or Live Provider mode, and compare the resulting operational metrics.
+
+![Model Compass evaluation step showing text examples, upload requirements, selected models, and run mode](docs/screenshots/03-evaluation.png)
 
 ## Run locally
 
